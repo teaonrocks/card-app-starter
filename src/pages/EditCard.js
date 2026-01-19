@@ -22,7 +22,7 @@ export default function EditCard() {
       async function fetchCard() {
         try {
           const cards = await getCards();
-          setCard(data);
+          setCard(cards.find(card => card.id === id));
         } catch (err) {
           setError("Failed to load card");
         } finally {
