@@ -1,61 +1,77 @@
 import { useEffect, useState } from "react";
 import Card from "../components/Card";
-import { getCards, deleteCard } from "../services/api";
+import { deleteCard, getCards } from "../services/api";
 
 export default function CardList() {
   const [cards, setCards] = useState([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState("");
 
-  useEffect(() => {
-    fetchCards();
-  }, []);
-
-  async function fetchCards() {
+  async function load() {
+    setLoading(true);
+    setError("");
     try {
-      setLoading(true);
       const data = await getCards();
       setCards(data);
     } catch (err) {
-      setError("Failed to load cards");
+      console.error(err);
+      setError("Failed to load cards.");
     } finally {
       setLoading(false);
     }
   }
 
-  async function handleDelete(card) {
-    if (!window.confirm(`Delete card "${card.title}"?`)) return;
+  useEffect(() => {
+    load();
+  }, []);
 
+  async function handleDelete(card) {
+    const ok = window.confirm(`Delete "${card.card_name}"?`);
+    if (!ok) return;
+
+    setBusy(true);
+    setError("");
     try {
-      setBusy(true);
-      await deleteCard(card.id);
-      setCards(cards.filter(c => c.id !== card.id));
+      const res = await deleteCard(card.id);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      // Optimistic update:
+      setCards((prev) => prev.filter((c) => c.id !== card.id));
     } catch (err) {
-      setError("Failed to delete card");
+      console.error(err);
+      setError("Failed to delete card.");
     } finally {
       setBusy(false);
     }
   }
 
-  if (loading) return <main><p>Loading cards...</p></main>;
-  if (error) return <main><p>{error}</p></main>;
-
   return (
-    <main>
-      <h1>All Cards</h1>
-
-      {busy && <p>Processing...</p>}
-
-      <div className="card-grid">
-        {cards.map(card => (
-          <Card
-            key={card.id}
-            card={card}
-            onDelete={() => handleDelete(card)}
-          />
-        ))}
+    <section className="page">
+      <div className="page__header">
+        <h2 className="page__title">All Cards</h2>
+        <button className="btn btn--ghost" onClick={load} disabled={busy}>
+          Refresh
+        </button>
       </div>
-    </main>
+
+      {error ? <div className="alert alert--error">{error}</div> : null}
+
+      {loading ? (
+        <div className="muted">Loading…</div>
+      ) : cards.length === 0 ? (
+        <div className="muted">No cards yet. Add your first card!</div>
+      ) : (
+        <div className="grid">
+          {cards.map((card) => (
+            <Card
+              key={card.id}
+              card={card}
+              onDelete={handleDelete}
+              disabled={busy}
+            />
+          ))}
+        </div>
+      )}
+    </section>
   );
 }
